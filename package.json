@@ -1,6 +1,6 @@
 {
   "name": "dsh-connect-huaweicloud",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "把华为云果办 OfficeAce 接进 DeepSeek Harness：有客户端就自动读登录态，没有就浏览器登录；多账号进一张池，可勾选、可切换、失败自动换号。",
   "type": "module",
   "main": "lib/index.js",
