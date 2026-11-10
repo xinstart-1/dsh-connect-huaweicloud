@@ -47,9 +47,9 @@ export function extractAssets(source) {
 }
 
 /** 造一份演示用的状态快照：覆盖可用/不可用/无网关/无 STS 四种账号。 */
-function demoSnapshot(nowMs) {
+function demoSnapshot(nowMs, version) {
   return {
-    version: '0.0.3',
+    version,
     accounts: [
       {
         id: 'acc_1a2b3c4d5e6f7a8b',
@@ -276,7 +276,10 @@ const invokedDirectly = process.argv[1] !== undefined && process.argv[1].endsWit
 if (invokedDirectly) {
   const source = await readFile(resolve('src/client/bundle.js'), 'utf8');
   const assets = extractAssets(source);
-  const snapshot = demoSnapshot(Date.now());
+  // 版本号从 package.json 读：预览页写死版本号会让人以为「界面没更新」（页头徽标
+  // 是最容易看出部署是否生效的地方，它必须反映真实构建版本）。
+  const { version } = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
+  const snapshot = demoSnapshot(Date.now(), version);
   const initialTheme = process.argv.includes('--light') ? 'light' : 'dark';
   const html = renderPreviewPage({ ...assets, snapshot, initialTheme });
 
