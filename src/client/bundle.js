@@ -23,73 +23,78 @@
   /** 登录进行中的探测间隔；登录流程本身是秒级的。 */
   var LOGIN_POLL_MS = 1500;
 
+  /**
+   * 版式规格照抄 dsh-connect-workbuddy 的设置页（`settings.section`）：
+   *
+   * - 整页竖排 18px；一组设置内部 14px；组与组之间就是这 18px。
+   * - **没有分隔线**。WorkBuddy 明确不用 divider，间距本身就是分隔；加了线反而
+   *   会把它切成一张张卡片，偏离面板本身的样式。
+   * - **勾选框在左、文字紧跟**，不是「标签左、控件右」的两端对齐。这个方向是
+   *   WorkBuddy 的硬规则：控件推到最右边，用户看不出它是勾给谁的。
+   * - 主标签 `--dsw-alias-label-primary` + 500 字重；说明文字 12/17 且 tertiary。
+   * - 主标签与说明之间 3px；勾选框与文字之间 10px。
+   */
   var CSS = [
-    /* 整页：从上往下排，宽度交给面板的内容列。
-       不做 height:100% / 居中——那会在列里撑出第二根滚动条，也会让内容缩在左边。 */
-    '.dshc-root{display:flex;flex-direction:column;gap:0;min-width:0;font-size:13px;line-height:1.6;color:var(--dsw-alias-label-primary)}',
+    '.dshc-root{display:flex;flex-direction:column;gap:18px;min-width:0;font-size:13px;line-height:18px;color:var(--dsw-alias-label-primary)}',
     '.dshc-root *{box-sizing:border-box}',
 
-    /* 页头：图标与标题同排，简介独占一行。面板自己已有一层标题栏，这里不再叠大标题。 */
-    '.dshc-head{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px;row-gap:2px;align-items:center;padding:2px 0 14px}',
+    /* 页头：28px 图标与标题同排，简介独占一行，自带一层底色。
+       不做 20px 大标题——宿主设置面板已经有一层标题栏，这里再放大标题会重复。 */
+    '.dshc-head{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px;row-gap:2px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--dsw-alias-bg-layer-1)}',
     '.dshc-head-icon{grid-row:1;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;color:var(--dsw-alias-label-secondary)}',
     '.dshc-title{margin:0;font-size:15px;line-height:22px;font-weight:600;grid-row:1;min-width:0;display:flex;align-items:center;gap:8px}',
-    '.dshc-version{font-size:11px;font-weight:400;color:var(--dsw-alias-label-tertiary)}',
+    '.dshc-version{font-size:11px;line-height:18px;font-weight:400;color:var(--dsw-alias-label-tertiary)}',
     '.dshc-desc{grid-column:1/-1;margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
 
-    /* 分组标题：与上面的行之间留出呼吸，字号比正文略重但不变大——它是分隔不是标题。 */
-    '.dshc-group{margin:18px 0 2px;font-size:13px;line-height:20px;font-weight:600;color:var(--dsw-alias-label-primary)}',
-    '.dshc-group:first-of-type{margin-top:6px}',
+    /* 一组设置：内部 14px 竖排。 */
+    '.dshc-group{display:flex;flex-direction:column;gap:14px;min-width:0}',
+    '.dshc-group-title{margin:0;font-size:13px;line-height:18px;font-weight:600;color:var(--dsw-alias-label-primary)}',
 
-    /* 设置行：左侧标题+说明，右侧控件。这是整页的主要骨架。 */
-    '.dshc-row{display:flex;align-items:center;gap:16px;min-width:0;padding:11px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}',
-    '.dshc-row:last-child{border-bottom:0}',
-    '.dshc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 auto}',
-    '.dshc-row-label{font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary)}',
-    '.dshc-row-hint{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
-    '.dshc-row-control{flex:none;display:flex;align-items:center;gap:6px}',
+    /* 带勾选框的设置行：勾选框在左，文字块紧跟。整行是 <label>，点文字也能勾。 */
+    '.dshc-pref{display:flex;align-items:flex-start;gap:10px;min-width:0;font-size:13px;line-height:18px;color:var(--dsw-alias-label-secondary);cursor:pointer}',
+    '.dshc-pref>input.dshc-check{flex:none;width:15px;height:15px;margin:1px 0 0;accent-color:var(--dsw-alias-brand-primary);cursor:pointer}',
+    '.dshc-pref-copy{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 auto}',
+    '.dshc-pref-label{font-weight:500;color:var(--dsw-alias-label-primary)}',
+    '.dshc-pref-hint{font-size:12px;line-height:17px;color:var(--dsw-alias-label-tertiary)}',
+    /* 控件紧跟标签，不推到最右：WorkBuddy 用 pref-lead 承载「标签 + 下拉/按钮」。 */
+    '.dshc-pref-lead{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0;flex-wrap:wrap}',
+    '.dshc-pref-lead>.dshc-pref-label{flex:none}',
 
-    /* 堆叠行：内容要占满整行（账号表、登录相位）。 */
-    '.dshc-row-stack{display:flex;flex-direction:column;gap:8px;padding:11px 0;border-bottom:1px solid var(--dsw-alias-border-l1);min-width:0}',
-    '.dshc-row-stack:last-child{border-bottom:0}',
+    /* 没有勾选框的设置行：左缩进 25px = 15px 勾选框 + 10px 间距，
+       让文字起点与上面带勾选框的行对齐，而不是落在勾选框下面。 */
+    '.dshc-field{display:flex;flex-direction:column;gap:3px;padding-left:25px;min-width:0}',
+    /* 需要占满整行、不缩进的内容（账号列表、登录相位）。 */
+    '.dshc-block{display:flex;flex-direction:column;gap:8px;min-width:0}',
 
-    /* 提示条：说明性文字，不用边框卡片，只给左侧一道竖线。 */
-    '.dshc-note{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
-    '.dshc-warn{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);border-left:2px solid var(--dsw-alias-brand-primary);padding:2px 0 2px 9px}',
-    '.dshc-error{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);border-left:2px solid var(--dsw-alias-border-l2);padding:2px 0 2px 9px}',
+    /* 提示文字：不使用边框卡片，保持与 WorkBuddy 一致的纯文字样式。
+       需要强调时给左侧一道 2px 竖线；这是唯一用线的地方。 */
+    '.dshc-note{margin:0;font-size:12px;line-height:17px;color:var(--dsw-alias-label-tertiary)}',
+    '.dshc-warn{margin:0;font-size:12px;line-height:17px;color:var(--dsw-alias-label-secondary);border-left:2px solid var(--dsw-alias-brand-primary);padding:1px 0 1px 9px}',
+    '.dshc-error{margin:0;font-size:12px;line-height:17px;color:var(--dsw-alias-label-secondary);border-left:2px solid var(--dsw-alias-border-l2);padding:1px 0 1px 9px}',
     '.dshc-link{color:var(--dsw-alias-brand-primary);word-break:break-all;font-size:12px}',
+    '.dshc-empty{margin:0;font-size:12px;line-height:17px;color:var(--dsw-alias-label-tertiary)}',
 
-    /* 控件：与面板里其它下拉/按钮同一套外观。 */
-    '.dshc-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}',
-    '.dshc-btn{appearance:none;font:inherit;font-size:12px;line-height:20px;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);padding:3px 10px;white-space:nowrap}',
+    /* 控件：尺寸照 WorkBuddy 的 .dsm-btn / 紧凑下拉。 */
+    '.dshc-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}',
+    '.dshc-btn{appearance:none;font:inherit;font-size:13px;line-height:20px;min-height:32px;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font-weight:500;padding:5px 14px;white-space:nowrap}',
     '.dshc-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-3)}',
-    '.dshc-btn:disabled{opacity:.5;cursor:not-allowed}',
-    '.dshc-btn[data-tone="danger"]{color:var(--dsw-alias-label-secondary)}',
-    '.dshc-btn[data-tone="primary"]{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary)}',
-    '.dshc-btn:focus-visible,.dshc-check:focus-visible,.dshc-select:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}',
-    '.dshc-select{font:inherit;font-size:12px;line-height:20px;padding:3px 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);max-width:22em}',
-    '.dshc-check{width:14px;height:14px;accent-color:var(--dsw-alias-brand-primary);cursor:pointer;flex:none}',
+    '.dshc-btn:disabled{opacity:.4;cursor:default}',
+    '.dshc-btn[data-tone="danger"]{border-color:transparent;font-weight:400}',
+    '.dshc-btn[data-tone="primary"]{border-color:transparent;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-layer-3)}',
+    '.dshc-select{flex:none;font:inherit;font-size:12px;line-height:16px;padding:3px 8px;border-radius:7px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);cursor:pointer;max-width:20em}',
+    '.dshc-btn:focus-visible,.dshc-check:focus-visible,.dshc-select:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}',
 
-    /* 开关：勾选框 + 文案，交回平台画勾形。 */
-    '.dshc-switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--dsw-alias-label-primary)}',
-
-    /* 账号卡片。
-       为什么不用表格：设置面板的内容列固定约 564px（800 面板减 188 导航），六列
-       塞进去必然塌成纵向堆叠——每个字段各占一行，又散又长。所以直接按这个宽度设计：
-       一行放「勾选 + 名称 + 状态徽章」，下一行放「来源 · 有效期 · 额度」，最后一行
-       是操作按钮。宽栏也不换形态，因为宿主那一列不会变宽。 */
-    '.dshc-acct{display:flex;flex-direction:column;gap:6px;padding:11px 0;border-bottom:1px solid var(--dsw-alias-border-l1);min-width:0}',
-    '.dshc-acct-list{display:flex;flex-direction:column;min-width:0}',
-    '.dshc-acct:last-child{border-bottom:0}',
-    '.dshc-acct-top{display:flex;align-items:flex-start;gap:8px;min-width:0}',
-    '.dshc-acct-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}',
-    '.dshc-acct-name{font-size:13px;font-weight:500;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-    '.dshc-acct-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary);min-width:0}',
-    '.dshc-acct-foot{display:flex;align-items:center;gap:6px;padding-left:22px;min-width:0}',
-    '.dshc-acct-quota{flex:1 1 auto;font-size:12px;line-height:20px;color:var(--dsw-alias-label-secondary);min-width:0}',
-    '.dshc-badge{display:inline-block;font-size:11px;line-height:18px;padding:0 6px;border-radius:5px;background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary);white-space:nowrap}',
+    /* 账号：WorkBuddy 的设置页里没有这类列表，沿用它的行骨架——
+       勾选框在左 + 名称/状态文字块，操作按钮缩进到文字起点下方。 */
+    '.dshc-acct-list{display:flex;flex-direction:column;gap:14px;min-width:0}',
+    '.dshc-acct{display:flex;flex-direction:column;gap:6px;min-width:0}',
+    '.dshc-acct-name{font-size:13px;line-height:18px;font-weight:500;color:var(--dsw-alias-label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.dshc-acct-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;line-height:17px;color:var(--dsw-alias-label-tertiary);min-width:0}',
+    '.dshc-acct-foot{display:flex;align-items:center;gap:8px;padding-left:25px;min-width:0}',
+    '.dshc-acct-quota{flex:none;font-size:12px;line-height:17px;color:var(--dsw-alias-label-secondary);min-width:0}',
+    '.dshc-badge{display:inline-block;font-size:11px;line-height:17px;padding:0 6px;border-radius:5px;background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary);white-space:nowrap}',
     '.dshc-badge[data-tone="ok"]{color:var(--dsw-alias-label-primary)}',
-    '.dshc-badge[data-tone="warn"]{border:1px solid var(--dsw-alias-border-l2)}',
-    '.dshc-empty{padding:10px 0;font-size:12px;color:var(--dsw-alias-label-tertiary)}'
+    '.dshc-badge[data-tone="warn"]{border:1px solid var(--dsw-alias-border-l2)}'
   ].join('');
 
   var zh = {
@@ -160,7 +165,7 @@
     groupOther: '其它',
     quotaLabel: '显示额度读数',
     quotaHint: '额度来自本机客户端控制面；没有客户端时不显示。',
-    refreshLabel: '刷新',
+    refreshLabel: '重新读取状态',
     refreshHint: '重新读客户端登录态与模型目录。',
     refresh: '刷新',
     working: '处理中…',
@@ -238,7 +243,7 @@
     groupOther: 'Other',
     quotaLabel: 'Show quota',
     quotaHint: 'Quota comes from the local client control plane; hidden when no client is running.',
-    refreshLabel: 'Refresh',
+    refreshLabel: 'Reload status',
     refreshHint: 'Re-read the client session and the model catalog.',
     refresh: 'Refresh',
     working: 'Working…',
@@ -444,26 +449,64 @@
       }
 
       /**
-       * 一行设置：左侧标题+说明，右侧控件。
+       * 带勾选框的设置行：勾选框在左，文字块（主标签 + 说明 + 可选控件）紧跟。
        *
-       * 抽成组件是为了让整页组件保持可读：这一页有十来行，每行都内联写三四个
-       * `h()` 会让主组件淹没在嵌套里。
+       * 为什么是 <label> 而不是 <div>：整行可点，点文字也能勾选，命中区域比 15px
+       * 的小方块大得多。WorkBuddy 的设置行同样是 <label>。
+       *
+       * 控件放在 `.dshc-pref-lead` 里紧跟标签，**不推到行尾**：推到最后一行之外，
+       * 用户看不出这个勾是设给谁的。
        */
-      function SettingRow(props) {
-        return h('div', { className: 'dshc-row' },
-          h('div', { className: 'dshc-row-text' },
-            h('span', { className: 'dshc-row-label' }, props.label),
+      function PrefRow(props) {
+        return h('label', { className: 'dshc-pref', title: props.title },
+          h('input', {
+            type: 'checkbox',
+            className: 'dshc-check',
+            checked: props.checked === true,
+            disabled: props.disabled === true,
+            'aria-label': props.label,
+            onChange: props.onChange
+          }),
+          h('span', { className: 'dshc-pref-copy' },
+            props.control !== undefined
+              ? h('span', { className: 'dshc-pref-lead' },
+                  h('span', { className: 'dshc-pref-label' }, props.label),
+                  props.control
+                )
+              : h('span', { className: 'dshc-pref-label' }, props.label),
             props.hint !== undefined && props.hint !== null
-              ? h('span', { className: 'dshc-row-hint' }, props.hint)
+              ? h('span', { className: 'dshc-pref-hint' }, props.hint)
               : null
-          ),
-          h('div', { className: 'dshc-row-control' }, props.children)
+          )
         );
       }
 
-      /** 分组标题。 */
-      function GroupTitle(props) {
-        return h('div', { className: 'dshc-group' }, props.text);
+      /**
+       * 没有勾选框的设置行：主标签 + 说明 + 控件。
+       *
+       * 左缩进 25px 与 `PrefRow` 的文字起点对齐（15px 勾选框 + 10px 间距），否则
+       * 两类行混排时文字会左右跳。
+       */
+      function FieldRow(props) {
+        return h('div', { className: 'dshc-field' },
+          props.control !== undefined
+            ? h('span', { className: 'dshc-pref-lead' },
+                h('span', { className: 'dshc-pref-label' }, props.label),
+                props.control
+              )
+            : h('span', { className: 'dshc-pref-label' }, props.label),
+          props.hint !== undefined && props.hint !== null
+            ? h('span', { className: 'dshc-pref-hint' }, props.hint)
+            : null
+        );
+      }
+
+      /** 一组设置：可选的组标题 + 组内 14px 竖排的行。 */
+      function Group(props) {
+        return h('div', { className: 'dshc-group' },
+          props.title !== undefined ? h('h4', { className: 'dshc-group-title' }, props.title) : null,
+          props.children
+        );
       }
 
       /**
@@ -491,8 +534,9 @@
           badges.push(h('span', { key: 'rn', className: 'dshc-badge' }, t('notRenewable')));
         }
 
+        // 只有上半部分包在 <label> 里：按钮不能放进 label，否则点「删除」会连带勾选。
         return h('div', { className: 'dshc-acct' },
-          h('div', { className: 'dshc-acct-top' },
+          h('label', { className: 'dshc-pref' },
             h('input', {
               type: 'checkbox',
               className: 'dshc-check',
@@ -501,9 +545,9 @@
               'aria-label': t('colPool') + '：' + accountName(account),
               onChange: function (event) { props.onToggleMember(account.id, event.target.checked); }
             }),
-            h('div', { className: 'dshc-acct-body' },
+            h('span', { className: 'dshc-pref-copy' },
               h('span', { className: 'dshc-acct-name', title: account.id }, accountName(account)),
-              h('div', { className: 'dshc-acct-meta' },
+              h('span', { className: 'dshc-acct-meta' },
                 h('span', null, sourceText(account, t)),
                 account.stsRemainingMs !== undefined
                   ? h('span', null, remainingText(account.stsRemainingMs))
@@ -546,7 +590,7 @@
         else if (view.phase === 'cancelled') text = t('loginCancelled');
         else text = format(t('loginFailed'), { message: view.message || '—' });
 
-        return h('div', { className: 'dshc-row-stack' },
+        return h('div', { className: 'dshc-block' },
           h('p', { className: 'dshc-note', 'aria-live': 'polite' }, text),
           view.authorizeUrl !== undefined && active
             ? h('a', {
@@ -573,12 +617,12 @@
       function PageHead(props) {
         var t = props.t;
         return h('div', { className: 'dshc-head' },
-          h('div', { className: 'dshc-head-icon' }, h(SectionIcon, { size: 24 })),
-          h('h3', { className: 'dshc-title' },
+          h('span', { className: 'dshc-head-icon' }, h(SectionIcon, { size: 24 })),
+          h('span', { className: 'dshc-title' },
             t('title'),
             props.version !== undefined ? h('span', { className: 'dshc-version' }, 'v' + props.version) : null
           ),
-          h('p', { className: 'dshc-desc' }, t('desc'))
+          h('span', { className: 'dshc-desc' }, t('desc'))
         );
       }
 
@@ -693,48 +737,42 @@
             })
           ),
 
-          h(GroupTitle, { text: t('groupDesktop') }),
-          h(SettingRow, {
-            label: t('desktopLabel'),
-            hint: detected ? t('desktopDetected') : t('desktopMissing')
-          },
-            h('button', {
-              type: 'button',
-              className: 'dshc-btn',
-              disabled: busy,
-              onClick: function () { void run('sync-desktop', {}); }
-            }, t('syncBtn'))
+          h(Group, { title: t('groupDesktop') },
+            h(FieldRow, {
+              label: t('desktopLabel'),
+              hint: detected ? t('desktopDetected') : t('desktopMissing'),
+              control: h('button', {
+                type: 'button',
+                className: 'dshc-btn',
+                disabled: busy,
+                onClick: function () { void run('sync-desktop', {}); }
+              }, t('syncBtn'))
+            }),
+            reasonHint !== undefined ? h('p', { className: 'dshc-warn' }, reasonHint) : null
           ),
-          reasonHint !== undefined
-            ? h('div', { className: 'dshc-row-stack' }, h('p', { className: 'dshc-warn' }, reasonHint))
-            : null,
 
-          h(GroupTitle, { text: t('groupLogin') }),
-          h(SettingRow, {
-            label: t('loginLabel'),
-            hint: t('loginHint')
-          },
-            h('button', {
-              type: 'button',
-              className: 'dshc-btn',
-              'data-tone': 'primary',
-              disabled: busy || isLoginActive(login),
-              onClick: function () { void run('login-start', {}); }
-            }, busy ? t('working') : t('loginAdd'))
-          ),
-          h(LoginStatus, { view: login, t: t, busy: busy, onCancel: function () { void run('login-cancel', {}); } }),
-
-          notice !== undefined
-            ? h('div', { className: 'dshc-row-stack' },
-                h('p', {
+          h(Group, { title: t('groupLogin') },
+            h(FieldRow, {
+              label: t('loginLabel'),
+              hint: t('loginHint'),
+              control: h('button', {
+                type: 'button',
+                className: 'dshc-btn',
+                'data-tone': 'primary',
+                disabled: busy || isLoginActive(login),
+                onClick: function () { void run('login-start', {}); }
+              }, busy ? t('working') : t('loginAdd'))
+            }),
+            h(LoginStatus, { view: login, t: t, busy: busy, onCancel: function () { void run('login-cancel', {}); } }),
+            notice !== undefined
+              ? h('p', {
                   className: notice.ok === true ? 'dshc-note' : 'dshc-error',
                   'aria-live': 'polite'
                 }, notice.text)
-              )
-            : null,
+              : null
+          ),
 
-          h(GroupTitle, { text: t('groupAccounts') }),
-          h('div', { className: 'dshc-row-stack' },
+          h(Group, { title: t('groupAccounts') },
             h('p', { className: 'dshc-note' }, t('accountsHint')),
             accounts.length === 0
               ? h('p', { className: 'dshc-empty' }, t('empty'))
@@ -751,66 +789,56 @@
                 }))
           ),
 
-          h(GroupTitle, { text: t('groupPool') }),
-          h(SettingRow, {
-            label: t('poolLabel'),
-            hint: poolEnabled ? t('poolHintOn') : t('poolHintOff')
-          },
-            h('label', { className: 'dshc-switch' },
-              h('input', {
-                type: 'checkbox',
-                className: 'dshc-check',
-                checked: poolEnabled,
-                disabled: busy,
-                'aria-label': t('poolToggle'),
-                onChange: function (event) { void run('settings', { poolEnabled: event.target.checked }); }
-              })
-            )
-          ),
-          poolEnabled
-            ? h(SettingRow, {
-                label: t('poolActiveLabel'),
-                hint: activeId !== undefined ? activeName : t('poolActiveUnknown')
-              })
-            : null,
-          poolEmpty
-            ? h('div', { className: 'dshc-row-stack' }, h('p', { className: 'dshc-warn' }, t('poolEmptyMembers')))
-            : null,
-          poolEnabled
-            ? null
-            : h(SettingRow, {
-                label: t('selectLabel'),
-                hint: t('selectHint')
-              },
-                h('select', {
-                  className: 'dshc-select',
-                  value: selectedId === undefined ? '' : selectedId,
-                  disabled: busy,
-                  'aria-label': t('selectLabel'),
-                  onChange: function (event) {
-                    var value = event.target.value;
-                    if (value === '') return;
-                    void run('switch-account', { accountId: value });
-                  }
-                },
-                  h('option', { value: '' }, t('selectNone')),
-                  accounts.map(function (account) {
-                    return h('option', { key: account.id, value: account.id }, accountName(account));
-                  })
-                )
-              ),
-
-          h(GroupTitle, { text: t('groupOther') }),
-          h(SettingRow, {
-            label: t('refreshLabel'),
-            hint: t('refreshHint')
-          },
-            h('button', {
-              type: 'button',
-              className: 'dshc-btn',
+          h(Group, { title: t('groupPool') },
+            h(PrefRow, {
+              label: t('poolLabel'),
+              hint: poolEnabled ? t('poolHintOn') : t('poolHintOff'),
+              checked: poolEnabled,
               disabled: busy,
-              onClick: function () { void run('refresh', {}); }
-            }, t('refresh'))
+              onChange: function (event) { void run('settings', { poolEnabled: event.target.checked }); }
+            }),
+            poolEnabled
+              ? h(FieldRow, {
+                  label: t('poolActiveLabel'),
+                  hint: activeId !== undefined ? activeName : t('poolActiveUnknown')
+                })
+              : null,
+            poolEmpty ? h('p', { className: 'dshc-warn' }, t('poolEmptyMembers')) : null,
+            poolEnabled
+              ? null
+              : h(FieldRow, {
+                  label: t('selectLabel'),
+                  hint: t('selectHint'),
+                  control: h('select', {
+                    className: 'dshc-select',
+                    value: selectedId === undefined ? '' : selectedId,
+                    disabled: busy,
+                    'aria-label': t('selectLabel'),
+                    onChange: function (event) {
+                      var value = event.target.value;
+                      if (value === '') return;
+                      void run('switch-account', { accountId: value });
+                    }
+                  },
+                    h('option', { value: '' }, t('selectNone')),
+                    accounts.map(function (account) {
+                      return h('option', { key: account.id, value: account.id }, accountName(account));
+                    })
+                  )
+                })
+          ),
+
+          h(Group, { title: t('groupOther') },
+            h(FieldRow, {
+              label: t('refreshLabel'),
+              hint: t('refreshHint'),
+              control: h('button', {
+                type: 'button',
+                className: 'dshc-btn',
+                disabled: busy,
+                onClick: function () { void run('refresh', {}); }
+              }, t('refresh'))
+            })
           )
         );
       }

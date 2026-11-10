@@ -2,11 +2,12 @@
  * 浏览器半边的版式预览：把设置页在真浏览器里渲染出来，供人工核对与截图。
  *
  * 为什么需要它：浏览器半边没有类型检查兜底，`check-client.mjs` 只能验语法与文案
- * 完整性 —— 它验不出「行高塌了」「控件换行错位」「窄栏下表格溢出」。这些只有在真
- * 渲染里才看得见，而装进宿主再刷新一次的成本远高于开一个静态预览页。
+ * 完整性 —— 它验不出「行高塌了」「控件换行错位」「勾选框被推到右端」这些只有真
+ * 渲染才看得见的问题。装进宿主再刷新一次的成本远高于开一个静态预览页。
  *
- * 用法：`node scripts/preview-ui.mjs` 起预览服务，然后用浏览器打开打印出的地址。
- * 加 `--check` 只做装配自检（不常驻），供 gate 使用。
+ * 用法：`node scripts/preview-ui.mjs` 起预览服务，浏览器打开打印出的地址。
+ *      `node scripts/preview-ui.mjs --light` 用浅色主题。
+ *      `node scripts/preview-ui.mjs --check` 只做装配自检，供 gate 使用。
  */
 
 import { createServer } from 'node:http';
@@ -48,7 +49,7 @@ export function extractAssets(source) {
 /** 造一份演示用的状态快照：覆盖可用/不可用/无网关/无 STS 四种账号。 */
 function demoSnapshot(nowMs) {
   return {
-    version: '0.0.1',
+    version: '0.0.3',
     accounts: [
       {
         id: 'acc_1a2b3c4d5e6f7a8b',
@@ -129,14 +130,24 @@ function renderPreviewPage({ css, zh, snapshot, initialTheme }) {
       .replace(/>/gu, '&gt;')
       .replace(/"/gu, '&quot;');
 
-  const row = (label, hint, controlHtml) =>
-    `<div class="dshc-row"><div class="dshc-row-text"><span class="dshc-row-label">${esc(label)}</span>` +
-    (hint === undefined ? '' : `<span class="dshc-row-hint">${esc(hint)}</span>`) +
-    `</div><div class="dshc-row-control">${controlHtml}</div></div>`;
+  /** 带勾选框的行：勾选框在左、文字块紧跟。 */
+  const pref = (label, hint, checked) =>
+    `<label class="dshc-pref">` +
+    `<input type="checkbox" class="dshc-check"${checked ? ' checked' : ''}>` +
+    `<span class="dshc-pref-copy"><span class="dshc-pref-label">${esc(label)}</span>` +
+    (hint === undefined ? '' : `<span class="dshc-pref-hint">${esc(hint)}</span>`) +
+    `</span></label>`;
 
-  const group = (text) => `<div class="dshc-group">${esc(text)}</div>`;
+  /** 无勾选框的行：左缩进 25px，控件紧跟标签。 */
+  const field = (label, hint, controlHtml) =>
+    `<div class="dshc-field"><span class="dshc-pref-lead">` +
+    `<span class="dshc-pref-label">${esc(label)}</span>${controlHtml === undefined ? '' : controlHtml}</span>` +
+    (hint === undefined ? '' : `<span class="dshc-pref-hint">${esc(hint)}</span>`) +
+    `</div>`;
 
-  const accountRows = snapshot.accounts
+  const group = (title, inner) => `<div class="dshc-group"><h4 class="dshc-group-title">${esc(title)}</h4>${inner}</div>`;
+
+  const accountCards = snapshot.accounts
     .map((account) => {
       const badges = [
         `<span class="dshc-badge" data-tone="${account.usable ? 'ok' : 'warn'}">${
@@ -158,15 +169,15 @@ function renderPreviewPage({ css, zh, snapshot, initialTheme }) {
 
       return (
         `<div class="dshc-acct">` +
-        `<div class="dshc-acct-top">` +
+        `<label class="dshc-pref">` +
         `<input type="checkbox" class="dshc-check"${account.inPool ? ' checked' : ''}>` +
-        `<div class="dshc-acct-body">` +
+        `<span class="dshc-pref-copy">` +
         `<span class="dshc-acct-name">${esc(account.label)}</span>` +
-        `<div class="dshc-acct-meta">` +
+        `<span class="dshc-acct-meta">` +
         `<span>${esc(account.origin === 'login' ? zh.sourceLogin : zh.sourceImport)}</span>` +
         remaining +
         badges +
-        `</div></div></div>` +
+        `</span></span></label>` +
         `<div class="dshc-acct-foot">` +
         `<span class="dshc-acct-quota">${quota}</span>` +
         `<button type="button" class="dshc-btn">${esc(zh.test)}</button>` +
@@ -193,7 +204,7 @@ function renderPreviewPage({ css, zh, snapshot, initialTheme }) {
     --dsw-alias-bg-layer-2:#f6f7f9; --dsw-alias-bg-layer-3:#eef0f3;
     --dsw-alias-brand-primary:#2563eb;
   }
-  body{margin:0;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);
+  body{margin:0;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);
     font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
   .frame{max-width:564px;margin:0 auto;padding:20px 22px 40px}
   .bar{display:flex;gap:8px;align-items:center;margin-bottom:14px;font-size:12px;color:var(--dsw-alias-label-tertiary)}
@@ -204,56 +215,56 @@ ${css}
 <body>
 <div class="frame">
   <div class="bar">
-    <span>设置 → 果办 OfficeAce（内容列宽 564px，与宿主一致）</span>
+    <span>设置 → 果办 OfficeAce（内容列 564px，与宿主一致）</span>
     <button type="button" onclick="document.documentElement.dataset.theme =
       document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'">切换主题</button>
   </div>
   <div class="dshc-root">
     <div class="dshc-head">
-      <div class="dshc-head-icon">
+      <span class="dshc-head-icon">
         <svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <rect x="1.5" y="2.5" width="13" height="11" rx="2" stroke="currentColor" stroke-width="1.3"/>
           <circle cx="5.5" cy="8" r="1.4" fill="currentColor"/>
           <path d="M8.5 6.6h4M8.5 9.4h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
         </svg>
-      </div>
-      <h3 class="dshc-title">${esc(zh.title)}<span class="dshc-version">v${esc(snapshot.version)}</span></h3>
-      <p class="dshc-desc">${esc(zh.desc)}</p>
+      </span>
+      <span class="dshc-title">${esc(zh.title)}<span class="dshc-version">v${esc(snapshot.version)}</span></span>
+      <span class="dshc-desc">${esc(zh.desc)}</span>
     </div>
 
-    <p class="dshc-note">${esc(zh.statusLine)
-      .replace('{count}', String(snapshot.accounts.length))
-      .replace('{models}', String(snapshot.modelCount))}</p>
-
-    ${group(zh.groupDesktop)}
-    ${row(zh.desktopLabel, zh.desktopMissing, `<button type="button" class="dshc-btn">${esc(zh.syncBtn)}</button>`)}
-    <div class="dshc-row-stack"><p class="dshc-warn">${esc(zh.desktopReasonMissing)}</p></div>
-
-    ${group(zh.groupLogin)}
-    ${row(
-      zh.loginLabel,
-      zh.loginHint,
-      `<button type="button" class="dshc-btn" data-tone="primary">${esc(zh.loginAdd)}</button>`,
+    ${group(
+      zh.groupDesktop,
+      field(zh.desktopLabel, zh.desktopMissing, `<button type="button" class="dshc-btn">${esc(zh.syncBtn)}</button>`) +
+        `<p class="dshc-warn">${esc(zh.desktopReasonMissing)}</p>`,
     )}
 
-    ${group(zh.groupAccounts)}
-    <div class="dshc-row-stack">
-      <p class="dshc-note">${esc(zh.accountsHint)}</p>
-      <div class="dshc-acct-list">${accountRows}</div>
-    </div>
-
-    ${group(zh.groupPool)}
-    ${row(zh.poolLabel, zh.poolHintOff, `<label class="dshc-switch"><input type="checkbox" class="dshc-check"></label>`)}
-    ${row(
-      zh.selectLabel,
-      zh.selectHint,
-      `<select class="dshc-select"><option>${esc(zh.selectNone)}</option>` +
-        snapshot.accounts.map((a) => `<option>${esc(a.label)}</option>`).join('') +
-        `</select>`,
+    ${group(
+      zh.groupLogin,
+      field(zh.loginLabel, zh.loginHint, `<button type="button" class="dshc-btn" data-tone="primary">${esc(zh.loginAdd)}</button>`),
     )}
 
-    ${group(zh.groupOther)}
-    ${row(zh.refreshLabel, zh.refreshHint, `<button type="button" class="dshc-btn">${esc(zh.refresh)}</button>`)}
+    ${group(
+      zh.groupAccounts,
+      `<p class="dshc-note">${esc(zh.accountsHint)}</p>` +
+        `<div class="dshc-acct-list">${accountCards}</div>`,
+    )}
+
+    ${group(
+      zh.groupPool,
+      pref(zh.poolLabel, zh.poolHintOff, false) +
+        field(
+          zh.selectLabel,
+          zh.selectHint,
+          `<select class="dshc-select"><option>${esc(zh.selectNone)}</option>` +
+            snapshot.accounts.map((a) => `<option>${esc(a.label)}</option>`).join('') +
+            `</select>`,
+        ),
+    )}
+
+    ${group(
+      zh.groupOther,
+      field(zh.refreshLabel, zh.refreshHint, `<button type="button" class="dshc-btn">${esc(zh.refresh)}</button>`),
+    )}
   </div>
 </div>
 </body></html>`;
@@ -266,15 +277,22 @@ if (invokedDirectly) {
   const source = await readFile(resolve('src/client/bundle.js'), 'utf8');
   const assets = extractAssets(source);
   const snapshot = demoSnapshot(Date.now());
-  /** `?theme=light` 让浅色主题也能被截图核对：没有这条，浅色下不可读的问题只能靠猜。 */
   const initialTheme = process.argv.includes('--light') ? 'light' : 'dark';
   const html = renderPreviewPage({ ...assets, snapshot, initialTheme });
 
   if (process.argv.includes('--check')) {
     // 装配自检：三样产物都能生成，且关键类名都在 CSS 里。
-    const missing = ['dshc-root', 'dshc-head', 'dshc-row', 'dshc-group', 'dshc-acct', 'dshc-switch'].filter(
-      (name) => !assets.css.includes('.' + name),
-    );
+    const missing = [
+      'dshc-root',
+      'dshc-head',
+      'dshc-group',
+      'dshc-pref',
+      'dshc-pref-copy',
+      'dshc-pref-lead',
+      'dshc-field',
+      'dshc-acct',
+      'dshc-select',
+    ].filter((name) => !assets.css.includes('.' + name));
     if (missing.length > 0) {
       console.error(`CSS 缺少关键类名：${missing.join(', ')}`);
       process.exit(1);
@@ -283,7 +301,9 @@ if (invokedDirectly) {
       console.error('预览页内容过少，版式装配可能失败');
       process.exit(1);
     }
-    console.log(`ok   preview-ui：CSS ${String(assets.css.length)} 字节，zh ${String(Object.keys(assets.zh).length)} 键，预览页 ${String(html.length)} 字节`);
+    console.log(
+      `ok   preview-ui：CSS ${String(assets.css.length)} 字节，zh ${String(Object.keys(assets.zh).length)} 键，预览页 ${String(html.length)} 字节`,
+    );
   } else {
     const server = createServer((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
