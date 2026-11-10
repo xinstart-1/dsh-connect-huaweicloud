@@ -1,0 +1,17 @@
+# 构建产物与依赖
+node_modules/
+lib/
+
+# 调研用的第三方源码副本：不进仓库、不进发布包
+reference/
+
+# 本地探测输出
+*.log
+*.tmp
+test-report.txt
+
+# 编辑器与系统
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

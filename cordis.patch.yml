@@ -1,0 +1,7 @@
+# dsh-connect-huaweicloud bundle patch：一行、双面。
+# node 半边 = 包的默认导出；浏览器半边 = ./client（由 package.json 的 dsh.client 声明）。
+# 行里的 name 必须等于包名 —— client-modules 的 node 半边靠
+# require.resolve('<row-name>/package.json') 找包，写错就找不到浏览器半边。
+- insert:
+    - id: dsh-connect-huaweicloud
+      name: 'dsh-connect-huaweicloud'
