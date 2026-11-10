@@ -168,8 +168,41 @@ export function checkRoutes(source, statusPath, actionPath) {
   return verdict(problems);
 }
 
+/**
+ * 颜色检查：样式里不能出现字面色值。
+ *
+ * 为什么单列这一项：字面色值在开发用的深色主题下看着正常，切到浅色就变成
+ * 「浅底浅字」或「深底深字」。这类问题截图不一定暴露（截图只拍了当前主题），
+ * 但一定会被用户遇到。全部走 `--dsw-alias-*` token 才能跟主题走。
+ *
+ * @param {string} source - 浏览器半边源码。
+ */
+export function checkNoLiteralColors(source) {
+  const cssMatch = /var CSS = \[([\s\S]*?)\]\.join\(''\);/u.exec(source);
+  if (cssMatch === null) return verdict(['找不到 CSS 数组']);
+  let css;
+  try {
+    css = new Function(`return [${cssMatch[1]}].join('');`)();
+  } catch (error) {
+    return verdict([`CSS 数组无法求值：${error instanceof Error ? error.message : String(error)}`]);
+  }
+
+  const problems = [];
+  const patterns = [
+    [/#[0-9a-fA-F]{3,8}\b/gu, '十六进制色值'],
+    [/\brgba?\([^)]*\)/gu, 'rgb() 色值'],
+    [/\bhsla?\([^)]*\)/gu, 'hsl() 色值'],
+  ];
+  for (const [pattern, label] of patterns) {
+    for (const match of css.matchAll(pattern)) {
+      problems.push(`CSS 里有${label}：${match[0]}（应改用 --dsw-alias-* token）`);
+    }
+  }
+  return verdict(problems);
+}
+
 /** 全部检查项的名字；脚本与测试共用同一份清单。 */
-export const CHECKS = ['syntax', 'no-module-syntax', 'locale', 'routes'];
+export const CHECKS = ['syntax', 'no-module-syntax', 'locale', 'routes', 'no-literal-colors'];
 
 /**
  * 跑全部检查。
@@ -184,6 +217,7 @@ export function runAllChecks(source, routes) {
     checkNoModuleSyntax(source),
     checkLocale(source),
     checkRoutes(source, routes.statusPath, routes.actionPath),
+    checkNoLiteralColors(source),
   ];
   const problems = [];
   for (const result of results) problems.push(...result.problems);

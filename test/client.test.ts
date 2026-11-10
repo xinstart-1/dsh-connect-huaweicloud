@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   checkLocale,
+  checkNoLiteralColors,
   checkNoModuleSyntax,
   checkRoutes,
   checkSyntax,
@@ -103,5 +104,36 @@ describe('路由检查', () => {
     const result = checkRoutes(broken, STATUS_PATH, ACTION_PATH);
     assert.equal(result.ok, false);
     assert.ok(result.problems.length > 0);
+  });
+});
+
+describe('颜色检查', () => {
+  test('真实文件没有字面色值', () => {
+    const result = checkNoLiteralColors(source);
+    assert.deepEqual(result.problems, [], `不该有字面色值：${result.problems.join('；')}`);
+  });
+
+  test('十六进制色值被抓住', () => {
+    // 字面色值在深色主题下看着正常，切浅色才暴露；所以必须能被静态检出。
+    // 插到 CSS 数组的**第一个元素之前**，确保落在数组内部。
+    const broken = source.replace("var CSS = [\n", "var CSS = [\n    '.dshc-probe{color:#ff0000}',\n");
+    assert.notEqual(broken, source, '样本构造失败：没找到 CSS 数组开头');
+    const result = checkNoLiteralColors(broken);
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.problems.some((problem) => problem.includes('#ff0000')),
+      `应抓住 #ff0000，实际：${result.problems.join('；')}`,
+    );
+  });
+
+  test('rgb() 色值被抓住', () => {
+    const broken = source.replace("var CSS = [\n", "var CSS = [\n    '.dshc-probe{background:rgba(0,0,0,.5)}',\n");
+    assert.notEqual(broken, source, '样本构造失败：没找到 CSS 数组开头');
+    const result = checkNoLiteralColors(broken);
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.problems.some((problem) => problem.includes('rgba(0,0,0,.5)')),
+      `应抓住 rgba，实际：${result.problems.join('；')}`,
+    );
   });
 });

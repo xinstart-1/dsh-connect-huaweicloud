@@ -6,6 +6,11 @@
  * 依赖：`ctx.slots`（回调晚执行）、`ctx.locale`（文案注册与绑定）、宿主提供的 `react`。
  * 不变量：只请求 STATUS_PATH 与 ACTION_PATH；轮询与登录探测都可取消；字段名以
  * `src/types.ts` 的 `StatusSnapshot` 为准，写错不会报错、只会静默显示空白。
+ *
+ * 版式跟随 DSH 设置面板的既有语言（参考 dsh-connect-workbuddy 的 settings.section
+ * 实现）：顶部一块自报家门（图标 + 标题 + 一句简介），下面按「分组标题 + 设置行」
+ * 排；每行左侧是标题与说明、右侧是控件，行间用 1px 细线分隔。**不用卡片包起来**——
+ * 这一页本身就是面板内容，再套一层边框会让它看起来像别人列表里的一行。
  */
 
 (function bootstrapHuaweicloudClient() {
@@ -19,40 +24,72 @@
   var LOGIN_POLL_MS = 1500;
 
   var CSS = [
-    '.dshc-root{display:flex;flex-direction:column;gap:14px;min-width:0;font-size:13px;line-height:1.6;color:var(--dsw-alias-label-primary)}',
-    '.dshc-head{display:flex;flex-direction:column;gap:6px;min-width:0}',
-    '.dshc-heading{display:flex;align-items:center;flex-wrap:wrap;gap:9px;min-width:0}',
-    '.dshc-title{margin:0;font-size:17px;font-weight:600;line-height:1.4}',
-    '.dshc-version{font-size:12px;color:var(--dsw-alias-label-tertiary)}',
-    '.dshc-desc{margin:0;font-size:12px;line-height:1.6;color:var(--dsw-alias-label-tertiary)}',
-    '.dshc-card{min-width:0;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-2);padding:12px 14px;display:flex;flex-direction:column;gap:8px}',
-    '.dshc-card-title{margin:0;font-size:13px;font-weight:600;line-height:1.4}',
-    '.dshc-hint{margin:0;font-size:12px;line-height:1.6;color:var(--dsw-alias-label-tertiary)}',
-    '.dshc-warn{margin:0;font-size:12px;line-height:1.6;border-left:3px solid var(--dsw-alias-brand-primary);padding:6px 10px;background:var(--dsw-alias-bg-layer-3);border-radius:0 6px 6px 0;color:var(--dsw-alias-label-secondary)}',
-    '.dshc-error{margin:0;font-size:12px;line-height:1.6;color:var(--dsw-alias-label-secondary);border-left:3px solid var(--dsw-alias-border-l2);padding:6px 10px}',
+    /* 整页：从上往下排，宽度交给面板的内容列。
+       不做 height:100% / 居中——那会在列里撑出第二根滚动条，也会让内容缩在左边。 */
+    '.dshc-root{display:flex;flex-direction:column;gap:0;min-width:0;font-size:13px;line-height:1.6;color:var(--dsw-alias-label-primary)}',
+    '.dshc-root *{box-sizing:border-box}',
+
+    /* 页头：图标与标题同排，简介独占一行。面板自己已有一层标题栏，这里不再叠大标题。 */
+    '.dshc-head{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px;row-gap:2px;align-items:center;padding:2px 0 14px}',
+    '.dshc-head-icon{grid-row:1;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;color:var(--dsw-alias-label-secondary)}',
+    '.dshc-title{margin:0;font-size:15px;line-height:22px;font-weight:600;grid-row:1;min-width:0;display:flex;align-items:center;gap:8px}',
+    '.dshc-version{font-size:11px;font-weight:400;color:var(--dsw-alias-label-tertiary)}',
+    '.dshc-desc{grid-column:1/-1;margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
+
+    /* 分组标题：与上面的行之间留出呼吸，字号比正文略重但不变大——它是分隔不是标题。 */
+    '.dshc-group{margin:18px 0 2px;font-size:13px;line-height:20px;font-weight:600;color:var(--dsw-alias-label-primary)}',
+    '.dshc-group:first-of-type{margin-top:6px}',
+
+    /* 设置行：左侧标题+说明，右侧控件。这是整页的主要骨架。 */
+    '.dshc-row{display:flex;align-items:center;gap:16px;min-width:0;padding:11px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}',
+    '.dshc-row:last-child{border-bottom:0}',
+    '.dshc-row-text{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 auto}',
+    '.dshc-row-label{font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary)}',
+    '.dshc-row-hint{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
+    '.dshc-row-control{flex:none;display:flex;align-items:center;gap:6px}',
+
+    /* 堆叠行：内容要占满整行（账号表、登录相位）。 */
+    '.dshc-row-stack{display:flex;flex-direction:column;gap:8px;padding:11px 0;border-bottom:1px solid var(--dsw-alias-border-l1);min-width:0}',
+    '.dshc-row-stack:last-child{border-bottom:0}',
+
+    /* 提示条：说明性文字，不用边框卡片，只给左侧一道竖线。 */
+    '.dshc-note{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
+    '.dshc-warn{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);border-left:2px solid var(--dsw-alias-brand-primary);padding:2px 0 2px 9px}',
+    '.dshc-error{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);border-left:2px solid var(--dsw-alias-border-l2);padding:2px 0 2px 9px}',
+    '.dshc-link{color:var(--dsw-alias-brand-primary);word-break:break-all;font-size:12px}',
+
+    /* 控件：与面板里其它下拉/按钮同一套外观。 */
     '.dshc-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}',
-    '.dshc-btn{appearance:none;font:inherit;font-size:12px;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);padding:4px 10px;white-space:nowrap}',
+    '.dshc-btn{appearance:none;font:inherit;font-size:12px;line-height:20px;cursor:pointer;border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);padding:3px 10px;white-space:nowrap}',
     '.dshc-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-3)}',
     '.dshc-btn:disabled{opacity:.5;cursor:not-allowed}',
     '.dshc-btn[data-tone="danger"]{color:var(--dsw-alias-label-secondary)}',
     '.dshc-btn[data-tone="primary"]{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary)}',
     '.dshc-btn:focus-visible,.dshc-check:focus-visible,.dshc-select:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px}',
-    '.dshc-table{width:100%;border-collapse:collapse;font-size:12px}',
-    '.dshc-table th{text-align:left;font-weight:600;font-size:11px;color:var(--dsw-alias-label-tertiary);padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l2);white-space:nowrap}',
-    '.dshc-table td{padding:7px 8px;border-bottom:1px solid var(--dsw-alias-border-l1);vertical-align:middle}',
-    '.dshc-name{display:flex;flex-direction:column;gap:2px;min-width:0}',
-    '.dshc-name-main{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:22em}',
-    '.dshc-name-sub{font-size:11px;color:var(--dsw-alias-label-tertiary)}',
-    '.dshc-badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:5px;background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary);white-space:nowrap}',
+    '.dshc-select{font:inherit;font-size:12px;line-height:20px;padding:3px 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);max-width:22em}',
+    '.dshc-check{width:14px;height:14px;accent-color:var(--dsw-alias-brand-primary);cursor:pointer;flex:none}',
+
+    /* 开关：勾选框 + 文案，交回平台画勾形。 */
+    '.dshc-switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--dsw-alias-label-primary)}',
+
+    /* 账号卡片。
+       为什么不用表格：设置面板的内容列固定约 564px（800 面板减 188 导航），六列
+       塞进去必然塌成纵向堆叠——每个字段各占一行，又散又长。所以直接按这个宽度设计：
+       一行放「勾选 + 名称 + 状态徽章」，下一行放「来源 · 有效期 · 额度」，最后一行
+       是操作按钮。宽栏也不换形态，因为宿主那一列不会变宽。 */
+    '.dshc-acct{display:flex;flex-direction:column;gap:6px;padding:11px 0;border-bottom:1px solid var(--dsw-alias-border-l1);min-width:0}',
+    '.dshc-acct-list{display:flex;flex-direction:column;min-width:0}',
+    '.dshc-acct:last-child{border-bottom:0}',
+    '.dshc-acct-top{display:flex;align-items:flex-start;gap:8px;min-width:0}',
+    '.dshc-acct-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}',
+    '.dshc-acct-name{font-size:13px;font-weight:500;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.dshc-acct-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;line-height:18px;color:var(--dsw-alias-label-tertiary);min-width:0}',
+    '.dshc-acct-foot{display:flex;align-items:center;gap:6px;padding-left:22px;min-width:0}',
+    '.dshc-acct-quota{flex:1 1 auto;font-size:12px;line-height:20px;color:var(--dsw-alias-label-secondary);min-width:0}',
+    '.dshc-badge{display:inline-block;font-size:11px;line-height:18px;padding:0 6px;border-radius:5px;background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary);white-space:nowrap}',
     '.dshc-badge[data-tone="ok"]{color:var(--dsw-alias-label-primary)}',
     '.dshc-badge[data-tone="warn"]{border:1px solid var(--dsw-alias-border-l2)}',
-    '.dshc-check{width:14px;height:14px;accent-color:var(--dsw-alias-brand-primary);cursor:pointer}',
-    '.dshc-select{font:inherit;font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);max-width:24em}',
-    '.dshc-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}',
-    '.dshc-grow{flex:1 1 auto;min-width:0}',
-    '.dshc-empty{padding:14px 4px;font-size:12px;color:var(--dsw-alias-label-tertiary)}',
-    '.dshc-link{color:var(--dsw-alias-brand-primary);word-break:break-all;font-size:12px}',
-    '@media (max-width:700px){.dshc-table thead{display:none}.dshc-table tr{display:block;border-bottom:1px solid var(--dsw-alias-border-l2);padding:8px 0}.dshc-table td{display:block;border:0;padding:2px 0}}'
+    '.dshc-empty{padding:10px 0;font-size:12px;color:var(--dsw-alias-label-tertiary)}'
   ].join('');
 
   var zh = {
@@ -60,12 +97,35 @@
     title: '果办 OfficeAce',
     desc: '有客户端就自动读它的登录态；没有就在浏览器里登录一次。多个账号进一张池，可勾选、可切换、失败自动换号。',
     statusLine: '共 {count} 个账号 · 目录 {models} 个模型',
-    desktopDetected: '已检测到本机果办客户端',
-    desktopMissing: '没检测到本机果办客户端',
-    desktopReasonMissing: '没找到果办客户端的数据目录。可以点「登录添加账号」用浏览器登录，不需要装客户端。',
+
+    groupDesktop: '本机客户端',
+    desktopLabel: '客户端状态',
+    desktopDetected: '已检测到并读到登录态',
+    desktopMissing: '未检测到',
+    desktopReasonMissing: '没找到果办客户端的数据目录。可以点下面的「登录添加账号」用浏览器登录，不需要装客户端。',
     desktopReasonUnreadable: '检测到果办客户端，但读不到它的登录态。请在客户端里登录一次，或改用浏览器登录。',
     desktopReasonNoGateway: '果办客户端已登录，但还没接入模型。打开客户端点「模型 → 接入模型」，再回来点「同步本机客户端」。',
-    accountsTitle: '账号',
+    syncLabel: '从客户端读账号',
+    syncHint: '只读，不改客户端里的任何登录状态。',
+    syncBtn: '同步本机客户端',
+
+    groupLogin: '登录',
+    loginLabel: '浏览器登录',
+    loginHint: '打开华为云授权页，登录完成后自动记录这个账号。不装客户端也能用。',
+    loginAdd: '登录添加账号',
+    loginSync: '同步本机客户端',
+    loginCancel: '取消登录',
+    loginPreparing: '正在准备登录…',
+    loginAwaiting: '请在浏览器里完成华为云登录。没有自动打开？点下面的链接。',
+    loginExchanging: '已拿到授权，正在换取凭据…',
+    loginDone: '登录成功。',
+    loginFailed: '登录失败：{message}',
+    loginCancelled: '已取消登录。',
+    loginOpenLink: '打开授权页',
+
+    groupAccounts: '账号',
+    accountsLabel: '账号列表',
+    accountsHint: '勾选表示同意花这个账号的额度。没勾的账号不会被自动选中。',
     colPool: '进池',
     colAccount: '账号',
     colSource: '来源',
@@ -77,7 +137,6 @@
     sourceImportOauth: '客户端 + 接管续期',
     stateUsable: '可用',
     stateUnusable: '不可用',
-    renewable: '可续期',
     notRenewable: '过期需重登',
     hasGateway: '已接入模型',
     noGateway: '未接入模型',
@@ -85,32 +144,30 @@
     remove: '删除',
     removeConfirm: '删除这条账号记录？果办客户端里的登录不会受影响。',
     empty: '还没有账号。装过果办客户端就点「同步本机客户端」；没装就点「登录添加账号」。',
-    poolTitle: '账号池',
-    poolToggle: '启用账号池（失败自动换号）',
-    poolOffHint: '关着时只用下面手动选定的那个账号。',
-    poolOnHint: '开着时由排序决定用哪个账号：可用优先 → 快过期先花 → 积分高。当前使用：{name}',
+
+    groupPool: '账号池',
+    poolToggle: '启用账号池',
+    poolLabel: '启用账号池（失败自动换号）',
+    poolHintOff: '关着时只用下面手动选定的那个账号，失败如实报错。',
+    poolHintOn: '开着时由排序决定用哪个账号：可用优先 → 快过期先花 → 积分高。',
+    poolActiveLabel: '当前使用',
     poolActiveUnknown: '（还没发出请求）',
     poolEmptyMembers: '池里一个账号都没勾。勾选才是「可以花它的额度」的同意。',
-    selectAccount: '手动使用哪个账号',
+    selectLabel: '手动使用哪个账号',
+    selectHint: '池关着时生效。',
     selectNone: '（未选定）',
-    loginTitle: '登录',
-    loginAdd: '登录添加账号',
-    loginSync: '同步本机客户端',
-    loginCancel: '取消登录',
-    loginPreparing: '正在准备登录…',
-    loginAwaiting: '请在浏览器里完成华为云登录。没有自动打开？点下面的链接。',
-    loginExchanging: '已拿到授权，正在换取凭据…',
-    loginDone: '登录成功。',
-    loginFailed: '登录失败：{message}',
-    loginCancelled: '已取消登录。',
-    loginOpenLink: '打开授权页',
+
+    groupOther: '其它',
+    quotaLabel: '显示额度读数',
+    quotaHint: '额度来自本机客户端控制面；没有客户端时不显示。',
+    refreshLabel: '刷新',
+    refreshHint: '重新读客户端登录态与模型目录。',
     refresh: '刷新',
     working: '处理中…',
+
     quotaUnknown: '—',
     quotaValue: '{remaining} / {total}',
-    quotaOnlyRemaining: '剩 {remaining}',
-    testOk: '可用（{models} 个模型）',
-    testFailed: '不可用：{message}'
+    quotaOnlyRemaining: '剩 {remaining}'
   };
 
   var en = {
@@ -118,12 +175,35 @@
     title: 'OfficeAce (果办)',
     desc: 'Uses the local desktop client when it is signed in; otherwise sign in once in the browser. Multiple accounts share one pool: selectable, switchable, automatic failover.',
     statusLine: '{count} account(s) · {models} model(s) in catalog',
-    desktopDetected: 'Local OfficeAce client detected',
-    desktopMissing: 'No local OfficeAce client detected',
-    desktopReasonMissing: 'No OfficeAce data directory found. Use "Sign in" to add an account in the browser — no client needed.',
+
+    groupDesktop: 'Local client',
+    desktopLabel: 'Client status',
+    desktopDetected: 'Detected, session read',
+    desktopMissing: 'Not detected',
+    desktopReasonMissing: 'No OfficeAce data directory found. Use "Sign in" below to add an account in the browser — no client needed.',
     desktopReasonUnreadable: 'OfficeAce client found, but its session could not be read. Sign in inside the client once, or use browser sign-in.',
     desktopReasonNoGateway: 'The client is signed in but has no model gateway yet. Open the client, choose Models → Connect model, then click "Sync client".',
-    accountsTitle: 'Accounts',
+    syncLabel: 'Read accounts from client',
+    syncHint: 'Read-only. Nothing in the client is modified.',
+    syncBtn: 'Sync client',
+
+    groupLogin: 'Sign in',
+    loginLabel: 'Browser sign-in',
+    loginHint: 'Opens the Huawei Cloud authorization page and records the account once you finish. Works without the client.',
+    loginAdd: 'Sign in to add account',
+    loginSync: 'Sync client',
+    loginCancel: 'Cancel sign-in',
+    loginPreparing: 'Preparing sign-in…',
+    loginAwaiting: 'Finish signing in to Huawei Cloud in the browser. Not opened automatically? Use the link below.',
+    loginExchanging: 'Authorization received, exchanging for credentials…',
+    loginDone: 'Signed in.',
+    loginFailed: 'Sign-in failed: {message}',
+    loginCancelled: 'Sign-in cancelled.',
+    loginOpenLink: 'Open authorization page',
+
+    groupAccounts: 'Accounts',
+    accountsLabel: 'Account list',
+    accountsHint: 'Checking an account is the consent to spend its quota. Unchecked accounts are never picked automatically.',
     colPool: 'In pool',
     colAccount: 'Account',
     colSource: 'Source',
@@ -135,7 +215,6 @@
     sourceImportOauth: 'Client + adopted refresh',
     stateUsable: 'Usable',
     stateUnusable: 'Unusable',
-    renewable: 'Renewable',
     notRenewable: 'Re-sign-in required',
     hasGateway: 'Model gateway ready',
     noGateway: 'No model gateway',
@@ -143,32 +222,30 @@
     remove: 'Remove',
     removeConfirm: 'Remove this account record? The sign-in inside the OfficeAce client is not affected.',
     empty: 'No accounts yet. If the OfficeAce client is installed, click "Sync client"; otherwise click "Sign in".',
-    poolTitle: 'Account pool',
-    poolToggle: 'Enable pool (automatic failover)',
-    poolOffHint: 'While off, only the manually selected account is used.',
-    poolOnHint: 'While on, ranking decides: usable first → expiring soon first → higher quota. Currently used: {name}',
+
+    groupPool: 'Account pool',
+    poolToggle: 'Enable pool',
+    poolLabel: 'Enable pool (automatic failover)',
+    poolHintOff: 'While off, only the manually selected account below is used; failures are reported as-is.',
+    poolHintOn: 'While on, ranking decides: usable first → expiring soon first → higher quota.',
+    poolActiveLabel: 'Currently used',
     poolActiveUnknown: '(no request yet)',
     poolEmptyMembers: 'No account is checked. Checking is the consent to spend its quota.',
-    selectAccount: 'Account to use',
+    selectLabel: 'Account to use',
+    selectHint: 'Takes effect while the pool is off.',
     selectNone: '(none selected)',
-    loginTitle: 'Sign in',
-    loginAdd: 'Sign in to add account',
-    loginSync: 'Sync client',
-    loginCancel: 'Cancel sign-in',
-    loginPreparing: 'Preparing sign-in…',
-    loginAwaiting: 'Finish signing in to Huawei Cloud in the browser. Not opened automatically? Use the link below.',
-    loginExchanging: 'Authorization received, exchanging for credentials…',
-    loginDone: 'Signed in.',
-    loginFailed: 'Sign-in failed: {message}',
-    loginCancelled: 'Sign-in cancelled.',
-    loginOpenLink: 'Open authorization page',
+
+    groupOther: 'Other',
+    quotaLabel: 'Show quota',
+    quotaHint: 'Quota comes from the local client control plane; hidden when no client is running.',
+    refreshLabel: 'Refresh',
+    refreshHint: 'Re-read the client session and the model catalog.',
     refresh: 'Refresh',
     working: 'Working…',
+
     quotaUnknown: '—',
     quotaValue: '{remaining} / {total}',
-    quotaOnlyRemaining: 'remaining {remaining}',
-    testOk: 'Usable ({models} models)',
-    testFailed: 'Unusable: {message}'
+    quotaOnlyRemaining: 'remaining {remaining}'
   };
 
   var loader = globalThis.__ModuleLoader__;
@@ -220,15 +297,10 @@
         return Array.isArray(snapshot.accounts) ? snapshot.accounts : [];
       }
 
-      /** 一次状态快照的共享 store：设置页里的两处视图共用一个轮询。 */
       var snapshot = undefined;
       var inflight;
       var inflightController;
       var ticker;
-
-      function emit() {
-        // 设置页只有一个订阅者（整页重渲染），这里不做广播：状态变化直接触发 re-render。
-      }
 
       /** 读一次状态；并发的两次请求共享同一个 promise。 */
       function loadStatus() {
@@ -371,46 +443,77 @@
         return t('sourceImport');
       }
 
-      /** 一行账号。抽成独立组件是为了让整页组件保持在 150 行以内。 */
+      /**
+       * 一行设置：左侧标题+说明，右侧控件。
+       *
+       * 抽成组件是为了让整页组件保持可读：这一页有十来行，每行都内联写三四个
+       * `h()` 会让主组件淹没在嵌套里。
+       */
+      function SettingRow(props) {
+        return h('div', { className: 'dshc-row' },
+          h('div', { className: 'dshc-row-text' },
+            h('span', { className: 'dshc-row-label' }, props.label),
+            props.hint !== undefined && props.hint !== null
+              ? h('span', { className: 'dshc-row-hint' }, props.hint)
+              : null
+          ),
+          h('div', { className: 'dshc-row-control' }, props.children)
+        );
+      }
+
+      /** 分组标题。 */
+      function GroupTitle(props) {
+        return h('div', { className: 'dshc-group' }, props.text);
+      }
+
+      /**
+       * 一条账号。
+       *
+       * 三行：勾选+名称、来源/有效期/额度、操作。不用表格——宿主内容列固定约 564px，
+       * 六列必然塌成纵向堆叠，反而比这个专用版式更长更难读。
+       */
       function AccountRow(props) {
         var account = props.account;
         var t = props.t;
         var busy = props.busy;
 
-        function onToggle(event) {
-          props.onToggleMember(account.id, event.target.checked);
+        var badges = [];
+        badges.push(h('span', {
+          key: 'state',
+          className: 'dshc-badge',
+          'data-tone': account.usable === true ? 'ok' : 'warn',
+          title: account.reason || ''
+        }, account.usable === true ? t('stateUsable') : t('stateUnusable')));
+        if (account.hasGateway !== true) {
+          badges.push(h('span', { key: 'gw', className: 'dshc-badge', 'data-tone': 'warn' }, t('noGateway')));
+        }
+        if (account.renewable !== true) {
+          badges.push(h('span', { key: 'rn', className: 'dshc-badge' }, t('notRenewable')));
         }
 
-        return h(
-          'tr',
-          null,
-          h('td', null, h('input', {
-            type: 'checkbox',
-            className: 'dshc-check',
-            checked: account.inPool === true,
-            disabled: busy,
-            'aria-label': t('colPool') + '：' + accountName(account),
-            onChange: onToggle
-          })),
-          h('td', null, h('div', { className: 'dshc-name' },
-            h('span', { className: 'dshc-name-main', title: account.id }, accountName(account)),
-            h('span', { className: 'dshc-name-sub' }, account.id)
-          )),
-          h('td', null, h('span', { className: 'dshc-badge' }, sourceText(account, t))),
-          h('td', null,
-            h('span', {
-              className: 'dshc-badge',
-              'data-tone': account.usable === true ? 'ok' : 'warn',
-              title: account.reason || ''
-            }, account.usable === true ? t('stateUsable') : t('stateUnusable')),
-            account.hasGateway === true ? null : h('span', { className: 'dshc-badge', 'data-tone': 'warn' }, t('noGateway')),
-            account.renewable === true ? null : h('span', { className: 'dshc-badge' }, t('notRenewable')),
-            account.stsRemainingMs !== undefined
-              ? h('span', { className: 'dshc-name-sub' }, remainingText(account.stsRemainingMs))
-              : null
+        return h('div', { className: 'dshc-acct' },
+          h('div', { className: 'dshc-acct-top' },
+            h('input', {
+              type: 'checkbox',
+              className: 'dshc-check',
+              checked: account.inPool === true,
+              disabled: busy,
+              'aria-label': t('colPool') + '：' + accountName(account),
+              onChange: function (event) { props.onToggleMember(account.id, event.target.checked); }
+            }),
+            h('div', { className: 'dshc-acct-body' },
+              h('span', { className: 'dshc-acct-name', title: account.id }, accountName(account)),
+              h('div', { className: 'dshc-acct-meta' },
+                h('span', null, sourceText(account, t)),
+                account.stsRemainingMs !== undefined
+                  ? h('span', null, remainingText(account.stsRemainingMs))
+                  : null,
+                badges
+              )
+            )
           ),
-          h('td', null, quotaText(account.quota, t)),
-          h('td', null, h('div', { className: 'dshc-row' },
+          h('div', { className: 'dshc-acct-foot' },
+            h('span', { className: 'dshc-acct-quota' }, quotaText(account.quota, t)),
             h('button', {
               type: 'button',
               className: 'dshc-btn',
@@ -424,15 +527,14 @@
               disabled: busy,
               onClick: function () { props.onRemove(account.id); }
             }, t('remove'))
-          ))
+          )
         );
       }
 
       /** 登录相位提示：只在有会话时显示。 */
-      function LoginPanel(props) {
+      function LoginStatus(props) {
         var view = props.view;
         var t = props.t;
-        var busy = props.busy;
         if (view === undefined || view === null || view.phase === 'idle') return null;
 
         var active = isLoginActive(view);
@@ -444,9 +546,8 @@
         else if (view.phase === 'cancelled') text = t('loginCancelled');
         else text = format(t('loginFailed'), { message: view.message || '—' });
 
-        return h('div', { className: 'dshc-card' },
-          h('h4', { className: 'dshc-card-title' }, t('loginTitle')),
-          h('p', { className: 'dshc-hint', 'aria-live': 'polite' }, text),
+        return h('div', { className: 'dshc-row-stack' },
+          h('p', { className: 'dshc-note', 'aria-live': 'polite' }, text),
           view.authorizeUrl !== undefined && active
             ? h('a', {
                 className: 'dshc-link',
@@ -460,11 +561,24 @@
                 h('button', {
                   type: 'button',
                   className: 'dshc-btn',
-                  disabled: busy,
+                  disabled: props.busy,
                   onClick: props.onCancel
                 }, t('loginCancel'))
               )
             : null
+        );
+      }
+
+      /** 页头：图标 + 标题 + 版本 + 一句简介。 */
+      function PageHead(props) {
+        var t = props.t;
+        return h('div', { className: 'dshc-head' },
+          h('div', { className: 'dshc-head-icon' }, h(SectionIcon, { size: 24 })),
+          h('h3', { className: 'dshc-title' },
+            t('title'),
+            props.version !== undefined ? h('span', { className: 'dshc-version' }, 'v' + props.version) : null
+          ),
+          h('p', { className: 'dshc-desc' }, t('desc'))
         );
       }
 
@@ -548,14 +662,7 @@
           void run('test-account', { accountId: id });
         }
 
-        var desktopLine;
-        if (view === undefined) {
-          desktopLine = t('desktopMissing');
-        } else if (view.desktopDetected === true) {
-          desktopLine = t('desktopDetected');
-        } else {
-          desktopLine = t('desktopMissing');
-        }
+        var detected = view !== undefined && view.desktopDetected === true;
 
         var reasonHint;
         if (view !== undefined && view.desktopDetected !== true && view.desktopReason !== undefined) {
@@ -571,123 +678,139 @@
           });
         }
 
+        var poolEmpty = poolEnabled && accounts.length > 0 && accounts.every(function (a) { return a.inPool !== true; });
+
         return h('div', { className: 'dshc-root' },
-          h('div', { className: 'dshc-head' },
-            h('div', { className: 'dshc-heading' },
-              h('h3', { className: 'dshc-title' }, t('title')),
-              h('span', { className: 'dshc-version' }, view !== undefined && view.version !== undefined ? 'v' + view.version : '')
-            ),
-            h('p', { className: 'dshc-desc' }, t('desc')),
-            h('p', { className: 'dshc-hint' },
-              format(t('statusLine'), {
-                count: accounts.length,
-                models: view !== undefined && typeof view.modelCount === 'number' ? view.modelCount : 0
+          h(PageHead, {
+            t: t,
+            version: view !== undefined ? view.version : undefined
+          }),
+
+          h('p', { className: 'dshc-note' },
+            format(t('statusLine'), {
+              count: accounts.length,
+              models: view !== undefined && typeof view.modelCount === 'number' ? view.modelCount : 0
+            })
+          ),
+
+          h(GroupTitle, { text: t('groupDesktop') }),
+          h(SettingRow, {
+            label: t('desktopLabel'),
+            hint: detected ? t('desktopDetected') : t('desktopMissing')
+          },
+            h('button', {
+              type: 'button',
+              className: 'dshc-btn',
+              disabled: busy,
+              onClick: function () { void run('sync-desktop', {}); }
+            }, t('syncBtn'))
+          ),
+          reasonHint !== undefined
+            ? h('div', { className: 'dshc-row-stack' }, h('p', { className: 'dshc-warn' }, reasonHint))
+            : null,
+
+          h(GroupTitle, { text: t('groupLogin') }),
+          h(SettingRow, {
+            label: t('loginLabel'),
+            hint: t('loginHint')
+          },
+            h('button', {
+              type: 'button',
+              className: 'dshc-btn',
+              'data-tone': 'primary',
+              disabled: busy || isLoginActive(login),
+              onClick: function () { void run('login-start', {}); }
+            }, busy ? t('working') : t('loginAdd'))
+          ),
+          h(LoginStatus, { view: login, t: t, busy: busy, onCancel: function () { void run('login-cancel', {}); } }),
+
+          notice !== undefined
+            ? h('div', { className: 'dshc-row-stack' },
+                h('p', {
+                  className: notice.ok === true ? 'dshc-note' : 'dshc-error',
+                  'aria-live': 'polite'
+                }, notice.text)
+              )
+            : null,
+
+          h(GroupTitle, { text: t('groupAccounts') }),
+          h('div', { className: 'dshc-row-stack' },
+            h('p', { className: 'dshc-note' }, t('accountsHint')),
+            accounts.length === 0
+              ? h('p', { className: 'dshc-empty' }, t('empty'))
+              : h('div', { className: 'dshc-acct-list' }, accounts.map(function (account) {
+                  return h(AccountRow, {
+                    key: account.id,
+                    account: account,
+                    t: t,
+                    busy: busy,
+                    onToggleMember: toggleMember,
+                    onTest: testAccount,
+                    onRemove: removeAccount
+                  });
+                }))
+          ),
+
+          h(GroupTitle, { text: t('groupPool') }),
+          h(SettingRow, {
+            label: t('poolLabel'),
+            hint: poolEnabled ? t('poolHintOn') : t('poolHintOff')
+          },
+            h('label', { className: 'dshc-switch' },
+              h('input', {
+                type: 'checkbox',
+                className: 'dshc-check',
+                checked: poolEnabled,
+                disabled: busy,
+                'aria-label': t('poolToggle'),
+                onChange: function (event) { void run('settings', { poolEnabled: event.target.checked }); }
               })
             )
           ),
-
-          h('div', { className: 'dshc-card' },
-            h('p', { className: 'dshc-hint' }, desktopLine),
-            reasonHint !== undefined ? h('p', { className: 'dshc-warn' }, reasonHint) : null,
-            h('div', { className: 'dshc-toolbar' },
-              h('button', {
-                type: 'button',
-                className: 'dshc-btn',
-                'data-tone': 'primary',
-                disabled: busy || isLoginActive(login),
-                onClick: function () { void run('login-start', {}); }
-              }, busy ? t('working') : t('loginAdd')),
-              h('button', {
-                type: 'button',
-                className: 'dshc-btn',
-                disabled: busy,
-                onClick: function () { void run('sync-desktop', {}); }
-              }, t('loginSync')),
-              h('button', {
-                type: 'button',
-                className: 'dshc-btn',
-                disabled: busy,
-                onClick: function () { void run('refresh', {}); }
-              }, t('refresh'))
-            ),
-            notice !== undefined
-              ? h('p', { className: notice.ok === true ? 'dshc-hint' : 'dshc-error', 'aria-live': 'polite' }, notice.text)
-              : null
-          ),
-
-          h(LoginPanel, { view: login, t: t, busy: busy, onCancel: function () { void run('login-cancel', {}); } }),
-
-          h('div', { className: 'dshc-card' },
-            h('h4', { className: 'dshc-card-title' }, t('accountsTitle')),
-            accounts.length === 0
-              ? h('p', { className: 'dshc-empty' }, t('empty'))
-              : h('table', { className: 'dshc-table' },
-                  h('thead', null, h('tr', null,
-                    h('th', { scope: 'col' }, t('colPool')),
-                    h('th', { scope: 'col' }, t('colAccount')),
-                    h('th', { scope: 'col' }, t('colSource')),
-                    h('th', { scope: 'col' }, t('colState')),
-                    h('th', { scope: 'col' }, t('colQuota')),
-                    h('th', { scope: 'col' }, t('colActions'))
-                  )),
-                  h('tbody', null, accounts.map(function (account) {
-                    return h(AccountRow, {
-                      key: account.id,
-                      account: account,
-                      t: t,
-                      busy: busy,
-                      onToggleMember: toggleMember,
-                      onTest: testAccount,
-                      onRemove: removeAccount
-                    });
-                  }))
-                )
-          ),
-
-          h('div', { className: 'dshc-card' },
-            h('h4', { className: 'dshc-card-title' }, t('poolTitle')),
-            h('div', { className: 'dshc-row' },
-              h('label', { className: 'dshc-row' },
-                h('input', {
-                  type: 'checkbox',
-                  className: 'dshc-check',
-                  checked: poolEnabled,
+          poolEnabled
+            ? h(SettingRow, {
+                label: t('poolActiveLabel'),
+                hint: activeId !== undefined ? activeName : t('poolActiveUnknown')
+              })
+            : null,
+          poolEmpty
+            ? h('div', { className: 'dshc-row-stack' }, h('p', { className: 'dshc-warn' }, t('poolEmptyMembers')))
+            : null,
+          poolEnabled
+            ? null
+            : h(SettingRow, {
+                label: t('selectLabel'),
+                hint: t('selectHint')
+              },
+                h('select', {
+                  className: 'dshc-select',
+                  value: selectedId === undefined ? '' : selectedId,
                   disabled: busy,
-                  'aria-label': t('poolToggle'),
-                  onChange: function (event) { void run('settings', { poolEnabled: event.target.checked }); }
-                }),
-                h('span', null, t('poolToggle'))
-              )
-            ),
-            h('p', { className: 'dshc-hint' }, poolEnabled ? t('poolOffHint') : t('poolOffHint')),
-            poolEnabled
-              ? h('p', { className: 'dshc-hint' },
-                  format(t('poolOnHint'), { name: activeId !== undefined ? activeName : t('poolActiveUnknown') }))
-              : null,
-            poolEnabled && accounts.length > 0 && accounts.every(function (a) { return a.inPool !== true; })
-              ? h('p', { className: 'dshc-warn' }, t('poolEmptyMembers'))
-              : null,
-            poolEnabled
-              ? null
-              : h('div', { className: 'dshc-row' },
-                  h('span', { className: 'dshc-hint' }, t('selectAccount')),
-                  h('select', {
-                    className: 'dshc-select',
-                    value: selectedId === undefined ? '' : selectedId,
-                    disabled: busy,
-                    'aria-label': t('selectAccount'),
-                    onChange: function (event) {
-                      var value = event.target.value;
-                      if (value === '') return;
-                      void run('switch-account', { accountId: value });
-                    }
-                  },
-                    h('option', { value: '' }, t('selectNone')),
-                    accounts.map(function (account) {
-                      return h('option', { key: account.id, value: account.id }, accountName(account));
-                    })
-                  )
+                  'aria-label': t('selectLabel'),
+                  onChange: function (event) {
+                    var value = event.target.value;
+                    if (value === '') return;
+                    void run('switch-account', { accountId: value });
+                  }
+                },
+                  h('option', { value: '' }, t('selectNone')),
+                  accounts.map(function (account) {
+                    return h('option', { key: account.id, value: account.id }, accountName(account));
+                  })
                 )
+              ),
+
+          h(GroupTitle, { text: t('groupOther') }),
+          h(SettingRow, {
+            label: t('refreshLabel'),
+            hint: t('refreshHint')
+          },
+            h('button', {
+              type: 'button',
+              className: 'dshc-btn',
+              disabled: busy,
+              onClick: function () { void run('refresh', {}); }
+            }, t('refresh'))
           )
         );
       }

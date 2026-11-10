@@ -10,6 +10,12 @@ reference/
 *.tmp
 test-report.txt
 
+# 界面预览截图（scripts/preview-ui.mjs 生成的临时产物）
+.preview/
+
+# 会话附件（用户贴进来的截图等）
+.dsh-file-attachment/
+
 # 编辑器与系统
 .DS_Store
 Thumbs.db

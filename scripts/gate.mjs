@@ -19,6 +19,9 @@ const steps = [
   // 浏览器半边没有类型检查兜底：语法 / 无模块语法 / i18n 键 / 宿主路径逐字一致。
   ['copy-client', [NODE, 'scripts/copy-client.mjs']],
   ['check-client', [NODE, 'scripts/check-client.mjs']],
+  // 版式装配：CSS 关键类名齐、预览页能生成。浏览器半边没有类型检查兜底，
+  // 这一步挡住「类名写错 → 界面整块没样式」这类只会在真机上暴露的问题。
+  ['preview-ui', [NODE, 'scripts/preview-ui.mjs', '--check']],
   // 宿主能不能真的 import 这个包、client.js 能不能解析。
   ['check-host', [NODE, 'scripts/check-host.mjs']],
   // files 白名单漏一个目录 = 本地全绿、装的人拿到一个没界面的包。
