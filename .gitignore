@@ -21,3 +21,12 @@ test-report.txt
 Thumbs.db
 .vscode/
 .idea/
+
+# ── 凭据与本地产物：永不入库（2026-11-10 加固）──
+.npmrc
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.dsh-file-attachment/
