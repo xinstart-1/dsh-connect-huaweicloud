@@ -11,7 +11,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -44,9 +44,22 @@ const sourceVersion = JSON.parse(readFileSync(resolve(root, 'package.json'), 'ut
 console.log('1/3 构建（tsdown + 拷浏览器半边）…');
 execFileSync(process.execPath, [resolve(root, 'scripts/gate.mjs')], { stdio: 'inherit' });
 
+// 构建后立刻确认产物自洽：构建步骤若静默失败，后面安装的仍是旧文件。
+const builtVersion = versionOfIndex(readFileSync(resolve(root, 'lib', 'index.js'), 'utf8'));
+if (builtVersion !== sourceVersion) {
+  fail(`构建产物版本是 ${String(builtVersion)}，源码是 ${sourceVersion}`, [
+    'tsdown 可能没有重新生成 lib/：先删掉 lib/ 再重跑',
+    '检查 src/constants.ts 的 VERSION 是否与 package.json 同步',
+  ]);
+}
+
 // ── 2. 安装：强制重新复制 ──────────────────────────────────────────────────
-// 不删旧目录也能装上，但删掉能保证不会残留上一次的文件（例如已改名的产物）。
+// 只跑 `pnpm install` 不够：`file:` 依赖的判断依据是版本号与 lockfile，
+// 当 package.json 的 version 没变（例如只改了界面），pnpm 会认为依赖未变化而
+// **跳过复制**，于是 profile 里留着上一版的 lib/。先删掉旧副本再装，才能保证
+// 装进去的就是刚构建的那一份。
 console.log(`2/3 安装到 profile「${profileName}」…`);
+rmSync(installedDir, { recursive: true, force: true });
 execFileSync(process.execPath, [
   join(dshHome, 'dsh-runtimes', 'dsh-primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.cjs'),
   '--dir', profileDir,

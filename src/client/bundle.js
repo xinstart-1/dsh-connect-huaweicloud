@@ -35,7 +35,7 @@
    * - 主标签与说明之间 3px；勾选框与文字之间 10px。
    */
   var CSS = [
-    '.dshc-root{display:flex;flex-direction:column;gap:18px;min-width:0;font-size:13px;line-height:18px;color:var(--dsw-alias-label-primary)}',
+    '.dshc-root{display:flex;flex-direction:column;gap:14px;min-width:0;font-size:13px;line-height:18px;color:var(--dsw-alias-label-primary)}',
     '.dshc-root *{box-sizing:border-box}',
 
     /* 页头：28px 图标与标题同排，简介独占一行，自带一层底色。
@@ -46,9 +46,14 @@
     '.dshc-version{font-size:11px;line-height:18px;font-weight:400;color:var(--dsw-alias-label-tertiary)}',
     '.dshc-desc{grid-column:1/-1;margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}',
 
-    /* 一组设置：内部 14px 竖排。 */
+    /* 一组设置：内部 14px 竖排。
+       组标题的规格取自 WorkBuddy 自己的标题类（`.dsm-workbuddy-models-title`：
+       14px / 20px / 600），不是自创字号。WorkBuddy 的设置页是一张平铺的偏好
+       列表，没有分组；这一页有五类互不相干的内容（客户端/登录/账号/池/其它），
+       平铺会糊成一片，所以借它自己的标题语汇分层。 */
     '.dshc-group{display:flex;flex-direction:column;gap:14px;min-width:0}',
-    '.dshc-group-title{margin:0;font-size:13px;line-height:18px;font-weight:600;color:var(--dsw-alias-label-primary)}',
+    '.dshc-group+.dshc-group{margin-top:6px}',
+    '.dshc-group-title{margin:0;font-size:14px;line-height:20px;font-weight:600;color:var(--dsw-alias-label-primary)}',
 
     /* 带勾选框的设置行：勾选框在左，文字块紧跟。整行是 <label>，点文字也能勾。 */
     '.dshc-pref{display:flex;align-items:flex-start;gap:10px;min-width:0;font-size:13px;line-height:18px;color:var(--dsw-alias-label-secondary);cursor:pointer}',
@@ -57,7 +62,7 @@
     '.dshc-pref-label{font-weight:500;color:var(--dsw-alias-label-primary)}',
     '.dshc-pref-hint{font-size:12px;line-height:17px;color:var(--dsw-alias-label-tertiary)}',
     /* 控件紧跟标签，不推到最右：WorkBuddy 用 pref-lead 承载「标签 + 下拉/按钮」。 */
-    '.dshc-pref-lead{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0;flex-wrap:wrap}',
+    '.dshc-pref-lead{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;flex-wrap:wrap}',
     '.dshc-pref-lead>.dshc-pref-label{flex:none}',
 
     /* 没有勾选框的设置行：左缩进 25px = 15px 勾选框 + 10px 间距，
